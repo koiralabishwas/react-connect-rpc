@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+// buf:lint:ignore PACKAGE_DIRECTORY_MATCH
+package greet.v1;
+
+// Defines where the generated Go code will live
+option go_package = "my-rpc-app/gen/greet/v1;greetv1";
+
+// ==========================================
+// 1. Greet Feature
+// ==========================================
+
+message GreetRequest {
+  string name = 1;
+}
+
+message GreetResponse {
+  string greeting = 1;
+}
+
+// Service dedicated to greetings
+service GreetService {
+  rpc Greet(GreetRequest) returns (GreetResponse);
+}
+
+// ==========================================
+// 2. Purchase Feature
+// ==========================================
+
+// The Input (What React sends to Go)
+message PurchaseRequest {
+  string product = 1;
+  int32 quantity = 2;
+  int32 price = 3;
+}
+
+// The Output (What Go sends back to React)
+message PurchaseResponse {
+  string receipt_id = 1;
+  string product = 2;
+  int32 quantity = 3;
+  int32 total_price = 4;
+}
+
+// Service dedicated to store transactions
+service PurchaseService {
+  rpc Purchase(PurchaseRequest) returns (PurchaseResponse);
+}
