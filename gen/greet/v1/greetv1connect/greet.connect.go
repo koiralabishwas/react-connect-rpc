@@ -26,6 +26,8 @@ const (
 	GreetServiceName = "greet.v1.GreetService"
 	// PurchaseServiceName is the fully-qualified name of the PurchaseService service.
 	PurchaseServiceName = "greet.v1.PurchaseService"
+	// StreamingServiceName is the fully-qualified name of the StreamingService service.
+	StreamingServiceName = "greet.v1.StreamingService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -38,9 +40,18 @@ const (
 const (
 	// GreetServiceGreetProcedure is the fully-qualified name of the GreetService's Greet RPC.
 	GreetServiceGreetProcedure = "/greet.v1.GreetService/Greet"
+	// PurchaseServiceListProductsProcedure is the fully-qualified name of the PurchaseService's
+	// ListProducts RPC.
+	PurchaseServiceListProductsProcedure = "/greet.v1.PurchaseService/ListProducts"
 	// PurchaseServicePurchaseProcedure is the fully-qualified name of the PurchaseService's Purchase
 	// RPC.
 	PurchaseServicePurchaseProcedure = "/greet.v1.PurchaseService/Purchase"
+	// PurchaseServiceGetOrderStatusProcedure is the fully-qualified name of the PurchaseService's
+	// GetOrderStatus RPC.
+	PurchaseServiceGetOrderStatusProcedure = "/greet.v1.PurchaseService/GetOrderStatus"
+	// StreamingServiceStreamProgressProcedure is the fully-qualified name of the StreamingService's
+	// StreamProgress RPC.
+	StreamingServiceStreamProgressProcedure = "/greet.v1.StreamingService/StreamProgress"
 )
 
 // GreetServiceClient is a client for the greet.v1.GreetService service.
@@ -115,7 +126,9 @@ func (UnimplementedGreetServiceHandler) Greet(context.Context, *connect.Request[
 
 // PurchaseServiceClient is a client for the greet.v1.PurchaseService service.
 type PurchaseServiceClient interface {
+	ListProducts(context.Context, *connect.Request[v1.ListProductsRequest]) (*connect.Response[v1.ListProductsResponse], error)
 	Purchase(context.Context, *connect.Request[v1.PurchaseRequest]) (*connect.Response[v1.PurchaseResponse], error)
+	GetOrderStatus(context.Context, *connect.Request[v1.GetOrderStatusRequest]) (*connect.Response[v1.GetOrderStatusResponse], error)
 }
 
 // NewPurchaseServiceClient constructs a client for the greet.v1.PurchaseService service. By
@@ -129,10 +142,22 @@ func NewPurchaseServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 	baseURL = strings.TrimRight(baseURL, "/")
 	purchaseServiceMethods := v1.File_greet_v1_greet_proto.Services().ByName("PurchaseService").Methods()
 	return &purchaseServiceClient{
+		listProducts: connect.NewClient[v1.ListProductsRequest, v1.ListProductsResponse](
+			httpClient,
+			baseURL+PurchaseServiceListProductsProcedure,
+			connect.WithSchema(purchaseServiceMethods.ByName("ListProducts")),
+			connect.WithClientOptions(opts...),
+		),
 		purchase: connect.NewClient[v1.PurchaseRequest, v1.PurchaseResponse](
 			httpClient,
 			baseURL+PurchaseServicePurchaseProcedure,
 			connect.WithSchema(purchaseServiceMethods.ByName("Purchase")),
+			connect.WithClientOptions(opts...),
+		),
+		getOrderStatus: connect.NewClient[v1.GetOrderStatusRequest, v1.GetOrderStatusResponse](
+			httpClient,
+			baseURL+PurchaseServiceGetOrderStatusProcedure,
+			connect.WithSchema(purchaseServiceMethods.ByName("GetOrderStatus")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -140,7 +165,14 @@ func NewPurchaseServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 
 // purchaseServiceClient implements PurchaseServiceClient.
 type purchaseServiceClient struct {
-	purchase *connect.Client[v1.PurchaseRequest, v1.PurchaseResponse]
+	listProducts   *connect.Client[v1.ListProductsRequest, v1.ListProductsResponse]
+	purchase       *connect.Client[v1.PurchaseRequest, v1.PurchaseResponse]
+	getOrderStatus *connect.Client[v1.GetOrderStatusRequest, v1.GetOrderStatusResponse]
+}
+
+// ListProducts calls greet.v1.PurchaseService.ListProducts.
+func (c *purchaseServiceClient) ListProducts(ctx context.Context, req *connect.Request[v1.ListProductsRequest]) (*connect.Response[v1.ListProductsResponse], error) {
+	return c.listProducts.CallUnary(ctx, req)
 }
 
 // Purchase calls greet.v1.PurchaseService.Purchase.
@@ -148,9 +180,16 @@ func (c *purchaseServiceClient) Purchase(ctx context.Context, req *connect.Reque
 	return c.purchase.CallUnary(ctx, req)
 }
 
+// GetOrderStatus calls greet.v1.PurchaseService.GetOrderStatus.
+func (c *purchaseServiceClient) GetOrderStatus(ctx context.Context, req *connect.Request[v1.GetOrderStatusRequest]) (*connect.Response[v1.GetOrderStatusResponse], error) {
+	return c.getOrderStatus.CallUnary(ctx, req)
+}
+
 // PurchaseServiceHandler is an implementation of the greet.v1.PurchaseService service.
 type PurchaseServiceHandler interface {
+	ListProducts(context.Context, *connect.Request[v1.ListProductsRequest]) (*connect.Response[v1.ListProductsResponse], error)
 	Purchase(context.Context, *connect.Request[v1.PurchaseRequest]) (*connect.Response[v1.PurchaseResponse], error)
+	GetOrderStatus(context.Context, *connect.Request[v1.GetOrderStatusRequest]) (*connect.Response[v1.GetOrderStatusResponse], error)
 }
 
 // NewPurchaseServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -160,16 +199,32 @@ type PurchaseServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewPurchaseServiceHandler(svc PurchaseServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	purchaseServiceMethods := v1.File_greet_v1_greet_proto.Services().ByName("PurchaseService").Methods()
+	purchaseServiceListProductsHandler := connect.NewUnaryHandler(
+		PurchaseServiceListProductsProcedure,
+		svc.ListProducts,
+		connect.WithSchema(purchaseServiceMethods.ByName("ListProducts")),
+		connect.WithHandlerOptions(opts...),
+	)
 	purchaseServicePurchaseHandler := connect.NewUnaryHandler(
 		PurchaseServicePurchaseProcedure,
 		svc.Purchase,
 		connect.WithSchema(purchaseServiceMethods.ByName("Purchase")),
 		connect.WithHandlerOptions(opts...),
 	)
+	purchaseServiceGetOrderStatusHandler := connect.NewUnaryHandler(
+		PurchaseServiceGetOrderStatusProcedure,
+		svc.GetOrderStatus,
+		connect.WithSchema(purchaseServiceMethods.ByName("GetOrderStatus")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/greet.v1.PurchaseService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
+		case PurchaseServiceListProductsProcedure:
+			purchaseServiceListProductsHandler.ServeHTTP(w, r)
 		case PurchaseServicePurchaseProcedure:
 			purchaseServicePurchaseHandler.ServeHTTP(w, r)
+		case PurchaseServiceGetOrderStatusProcedure:
+			purchaseServiceGetOrderStatusHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -179,6 +234,84 @@ func NewPurchaseServiceHandler(svc PurchaseServiceHandler, opts ...connect.Handl
 // UnimplementedPurchaseServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedPurchaseServiceHandler struct{}
 
+func (UnimplementedPurchaseServiceHandler) ListProducts(context.Context, *connect.Request[v1.ListProductsRequest]) (*connect.Response[v1.ListProductsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("greet.v1.PurchaseService.ListProducts is not implemented"))
+}
+
 func (UnimplementedPurchaseServiceHandler) Purchase(context.Context, *connect.Request[v1.PurchaseRequest]) (*connect.Response[v1.PurchaseResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("greet.v1.PurchaseService.Purchase is not implemented"))
+}
+
+func (UnimplementedPurchaseServiceHandler) GetOrderStatus(context.Context, *connect.Request[v1.GetOrderStatusRequest]) (*connect.Response[v1.GetOrderStatusResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("greet.v1.PurchaseService.GetOrderStatus is not implemented"))
+}
+
+// StreamingServiceClient is a client for the greet.v1.StreamingService service.
+type StreamingServiceClient interface {
+	StreamProgress(context.Context, *connect.Request[v1.StreamProgressRequest]) (*connect.ServerStreamForClient[v1.StreamProgressResponse], error)
+}
+
+// NewStreamingServiceClient constructs a client for the greet.v1.StreamingService service. By
+// default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped responses,
+// and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
+// connect.WithGRPC() or connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewStreamingServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) StreamingServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	streamingServiceMethods := v1.File_greet_v1_greet_proto.Services().ByName("StreamingService").Methods()
+	return &streamingServiceClient{
+		streamProgress: connect.NewClient[v1.StreamProgressRequest, v1.StreamProgressResponse](
+			httpClient,
+			baseURL+StreamingServiceStreamProgressProcedure,
+			connect.WithSchema(streamingServiceMethods.ByName("StreamProgress")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// streamingServiceClient implements StreamingServiceClient.
+type streamingServiceClient struct {
+	streamProgress *connect.Client[v1.StreamProgressRequest, v1.StreamProgressResponse]
+}
+
+// StreamProgress calls greet.v1.StreamingService.StreamProgress.
+func (c *streamingServiceClient) StreamProgress(ctx context.Context, req *connect.Request[v1.StreamProgressRequest]) (*connect.ServerStreamForClient[v1.StreamProgressResponse], error) {
+	return c.streamProgress.CallServerStream(ctx, req)
+}
+
+// StreamingServiceHandler is an implementation of the greet.v1.StreamingService service.
+type StreamingServiceHandler interface {
+	StreamProgress(context.Context, *connect.Request[v1.StreamProgressRequest], *connect.ServerStream[v1.StreamProgressResponse]) error
+}
+
+// NewStreamingServiceHandler builds an HTTP handler from the service implementation. It returns the
+// path on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewStreamingServiceHandler(svc StreamingServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	streamingServiceMethods := v1.File_greet_v1_greet_proto.Services().ByName("StreamingService").Methods()
+	streamingServiceStreamProgressHandler := connect.NewServerStreamHandler(
+		StreamingServiceStreamProgressProcedure,
+		svc.StreamProgress,
+		connect.WithSchema(streamingServiceMethods.ByName("StreamProgress")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/greet.v1.StreamingService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case StreamingServiceStreamProgressProcedure:
+			streamingServiceStreamProgressHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedStreamingServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedStreamingServiceHandler struct{}
+
+func (UnimplementedStreamingServiceHandler) StreamProgress(context.Context, *connect.Request[v1.StreamProgressRequest], *connect.ServerStream[v1.StreamProgressResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("greet.v1.StreamingService.StreamProgress is not implemented"))
 }

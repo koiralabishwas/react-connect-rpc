@@ -5,7 +5,7 @@
 
 // buf:lint:ignore PACKAGE_DIRECTORY_MATCH
 
-import { GreetRequest, GreetResponse, PurchaseRequest, PurchaseResponse } from "./greet_pb.js";
+import { GetOrderStatusRequest, GetOrderStatusResponse, GreetRequest, GreetResponse, ListProductsRequest, ListProductsResponse, PurchaseRequest, PurchaseResponse, StreamProgressRequest, StreamProgressResponse } from "./greet_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -37,6 +37,15 @@ export const PurchaseService = {
   typeName: "greet.v1.PurchaseService",
   methods: {
     /**
+     * @generated from rpc greet.v1.PurchaseService.ListProducts
+     */
+    listProducts: {
+      name: "ListProducts",
+      I: ListProductsRequest,
+      O: ListProductsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
      * @generated from rpc greet.v1.PurchaseService.Purchase
      */
     purchase: {
@@ -44,6 +53,35 @@ export const PurchaseService = {
       I: PurchaseRequest,
       O: PurchaseResponse,
       kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc greet.v1.PurchaseService.GetOrderStatus
+     */
+    getOrderStatus: {
+      name: "GetOrderStatus",
+      I: GetOrderStatusRequest,
+      O: GetOrderStatusResponse,
+      kind: MethodKind.Unary,
+    },
+  }
+} as const;
+
+/**
+ * Service dedicated to real-time streaming without WebSockets
+ *
+ * @generated from service greet.v1.StreamingService
+ */
+export const StreamingService = {
+  typeName: "greet.v1.StreamingService",
+  methods: {
+    /**
+     * @generated from rpc greet.v1.StreamingService.StreamProgress
+     */
+    streamProgress: {
+      name: "StreamProgress",
+      I: StreamProgressRequest,
+      O: StreamProgressResponse,
+      kind: MethodKind.ServerStreaming,
     },
   }
 } as const;

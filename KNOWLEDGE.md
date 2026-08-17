@@ -1,105 +1,144 @@
-# 🚀 Go + React Connect RPC Boilerplate
+# ⚡ Next.js / React 開発者のための ConnectRPC 入門
+## 〜 `fetch` の冗長なコードを捨てて、バックエンドとの型整合性を「自動で」担保する！ 〜
 
-このプロジェクトは、バックエンドに **Go**、フロントエンドに **React (Next.js / Vite)** を採用し、両者を **Connect RPC** で繋ぐフルスタックアプリケーションのボイラープレート（ひな形）です。
+本書は、**「普段 Next.js や React で `fetch()` を使っているフロントエンド開発者」** に向けた ConnectRPC の解説ガイドです。
 
-## 💡 Connect RPC とは？
-
-Connect RPC は、HTTP/1.1 および HTTP/2 上で動作する、シンプルで強力な RPC（Remote Procedure Call）フレームワークです。gRPC の強力な型安全性を持ちながら、gRPC-Web のような複雑なプロキシ（Envoyなど）を必要とせず、ブラウザから直接 Go サーバーと通信できるのが最大の特徴です。
-
-### 🆚 REST API との比較（なぜ Connect RPC を使うのか？）
-
-従来の REST API 開発では、「API定義書（Swagger等）のメンテナンス」「フロント/バックでの型のズレによるバグ」「JSONのパース処理」など、多くのオーバーヘッドが発生していました。
-
-| 特徴 | REST API | Connect RPC |
-| :--- | :--- | :--- |
-| **スキーマ駆動** | OpenAPI 等を手動管理（ズレやすい） | `.proto` ファイルが唯一の絶対的な仕様書 |
-| **型安全性** | なし（TypeScriptの型は手書きか別ツールで生成） | **完全な型安全。** バックエンドの変更が即座にフロントのエラーとして検知される |
-| **リクエスト手法** | `fetch` や `axios` で URL と HTTP メソッドを指定 | フロント側では**ローカル関数を呼ぶように** `client.purchase(req)` とするだけ |
-| **通信量・速度** | JSON (比較的サイズが大きい) | JSON または Protobuf (バイナリ通信による高速化が可能) |
-| **開発体験 (DX)** | エンドポイントやパラメータ名を手動で確認 | IDE（VSCode等）の強力なオートコンプリートが効く |
+勉強会や LT（5〜10分）で最も刺さる **「REST と ConnectRPC の処理フロー比較図」** と、ConnectRPC の最大の売りである **「① バックエンドとのめんどい型整合性の自動担保」** & **「② fetch の冗長コードの徹底簡略化（とにかく楽！）」** を前面に押し出した構成になっています。
 
 ---
 
-## 📂 ディレクトリ構成
+## 📊 【図解比較】REST vs ConnectRPC の処理の流れ
 
-```text
-.
-├── proto/             # Protocol Buffers (スキーマ定義の単一情報源)
-│   └── greet/v1/
-│       └── greet.proto
-├── frontend/          # React / Next.js アプリケーション (TypeScript)
-│   ├── src/
-│   │   ├── gen/       # 自動生成された TS クライアントコード (編集不可)
-│   │   └── App.tsx    # フロントエンドの実装
-│   └── package.json
-├── gen/               # 自動生成された Go サーバーコード (編集不可)
-├── main.go            # Go バックエンドのエントリーポイントとロジック実装
-├── buf.yaml           # Buf (コード生成ツール) のモジュール設定
-└── buf.gen.yaml       # コード生成プラグインの設定
+開発から実行までの流れを比べると、ConnectRPC がいかに「人間の手作業」と「バグの温床」を削ぎ落としているかが一目でわかります。
+
+### ❌ 1. 従来の REST API の流れ（手作業が多くてズレやすい）
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor FE as フロントエンド開発者 (Next.js)
+    actor BE as バックエンド開発者 (Go等)
+    participant IDE as VSCode (エディタ)
+    participant API as サーバー / 本番環境
+
+    BE->>FE: ①「API作ったよ！」(Swagger / Notion / Slackで共有)
+    Note over FE: ② 仕様書を見ながら TypeScript の型を手書き<br/>(スネーク/キャメルケースのtypoリスク)
+    Note over FE: ③ fetchの長いボイラープレートを書く<br/>(URL, method, headers, JSON.stringify, as 型キャスト)
+    IDE-->>FE: ※ URLやJSONの中身はただの文字列なので補完してくれない
+    FE->>API: ④ 通信実行 (POST /api/purchase)
+    Note over API,FE: 💥 もしバックエンドの型が変わっていたら…<br/>実行時に undefined エラーで画面が真っ白に！
 ```
 
-## 🏗️ アーキテクチャの仕組み
-## 3つの要素で構成
-### 1.The Blueprint (proto/)
-通信の設計図となる .proto ファイルです。ここで「どのような関数があるか」「どんなデータ（型）を受け取り、何を返すか」を定義します。
-この設計図を元に、Buf が Go と TypeScript 用のコードを自動生成します。
-```proto
-// 例: 商品購入用の設計図 (proto/greet/v1/greet.proto)
-message PurchaseRequest {
-  string product = 1;
-  int32 quantity = 2;
-  int32 price = 3;
-}
+---
 
-message PurchaseResponse {
-  string receipt_id = 1;
-  int32 total_price = 2;
-}
+### ⭕️ 2. ConnectRPC の流れ（すべて自動同期・とにかく楽！）
 
-service PurchaseService {
-  rpc Purchase(PurchaseRequest) returns (PurchaseResponse);
-}
-```
-### 2.The Backedn
-自動生成された Go のインターフェースを満たすように、ビジネスロジックだけを実装します。HTTP ルーティングや JSON パースの記述は不要です。
-```go
-// main.go
-func (s *PurchaseServer) Purchase(
-    ctx context.Context,
-    req *connect.Request[greetv1.PurchaseRequest],
-) (*connect.Response[greetv1.PurchaseResponse], error) {
-    
-    // 複雑なパース処理なしに、型安全なリクエストを直接受け取る
-    total := req.Msg.Quantity * req.Msg.Price
-    
-    return connect.NewResponse(&greetv1.PurchaseResponse{
-        ReceiptId:  "REC-12345",
-        TotalPrice: total,
-    }), nil
-}
+```mermaid
+sequenceDiagram
+    autonumber
+    actor FE as フロントエンド開発者 (Next.js)
+    participant Schema as スキーマ定義 (.proto)
+    participant Gen as コード自動生成 (buf generate)
+    participant IDE as VSCode (エディタ)
+    participant API as Go サーバー
+
+    Schema->>Gen: ① API の仕様（引数と返り値）を定義
+    Gen-->>FE: ② TypeScript の型 & クライアント関数を100%自動生成！
+    Note over FE,IDE: ③ 手書きの型定義ゼロ！<br/>「client.」と打つだけで全自動補完される
+    FE->>API: ④ client.purchase({ ... }) を呼ぶだけ！
+    Note over API,FE: ✨ ビルド時に型が完全保証されているため、実行時エラーはゼロ！<br/>仕様が変わっても npm run build が事前に検知！
 ```
 
-### 3.The Frontend
+---
+
+## 🔥 ConnectRPC の 2大「売り」ポイント！
+
+### 売り ①：バックエンドとのめんどい「型整合性」を 100% 自動で担保！
+フロントとバックで一番めんどくさいのは、**「API仕様のすり合わせと型の同期」** です。
+
+* **REST の現実:**
+  * 「Swagger の更新が漏れていて実際のレスポンスと違った…」
+  * 「バックエンドは `user_id` なのに、フロントで `userId` と書いていて動かなかった…」
+  * 「バックエンドが仕様変更したのに気づかず、本番リリース後に画面真っ白バグが発生した…」
+* **ConnectRPC なら:**
+  * スキーマ（`.proto`）が **唯一の絶対的な正義（Single Source of Truth）**。
+  * コマンド一発で Go と TypeScript の型が完全同期。
+  * バックエンド側で仕様変更があった場合、**フロントエンドの `npm run build` がコンパイルエラーを出して即座に教えてくれる** ため、手動確認や Grep 検索の必要がゼロになります。
+
+---
+
+### 売り ②：`fetch` の冗長なコードを全消去！とにかく「楽！！」
+URLの文字列、HTTPメソッド、リクエストヘッダー、JSONパース……。毎回書いていた「お決まりの退屈なコード」がすべて消え去ります。
+
+#### 💻 コードの圧倒的シンプル化（比較）
+
 ```typescript
-// App.tsx
-// URLやHTTPメソッドの指定なしに、関数としてバックエンドを呼び出せる！
-const res = await client.purchase({
-  product: "Apple",
-  quantity: 3,
-  price: 100
+// ❌ 従来の REST (Next.js) : 冗長でミスが起きやすい…
+type PurchaseResponse = { receiptId: string; totalPrice: number };
+
+async function buyItem() {
+  // 1. URLを間違えないように手入力
+  // 2. method: "POST" を指定
+  // 3. headers を指定
+  // 4. JSON.stringify() で文字列化
+  const res = await fetch("http://localhost:8080/api/purchase", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ product_id: "prod-apple", quantity: 2 }),
+  });
+
+  // 5. ステータスコードをチェック
+  if (!res.ok) throw new Error("購入失敗");
+
+  // 6. JSONパース ＋ 「as」で嘘かもしれない型をつける
+  const data = (await res.json()) as PurchaseResponse;
+  console.log(data.totalPrice);
+}
+```
+
+```typescript
+// ⭕️ ConnectRPC : たったこれだけ！普通の関数を呼ぶ感覚で「楽！！」
+async function buyItem() {
+  // URLもHTTPメソッドもJSONパースも意識不要！
+  // 引数も返り値も VSCode が 100% オートコンプリートしてくれる
+  const res = await purchaseClient.purchase({
+    productId: "prod-apple",
+    quantity: 2,
+  });
+
+  console.log(res.totalPrice); // 最初から number 型として保証されている！
+}
+```
+
+---
+
+## 🎁 おまけ：リアルタイム通信（進捗バー表示など）も数行で書ける！
+
+WebSocket サーバーの構築や、面倒な接続維持・切断処理は一切不要です。  
+JavaScript 標準の `for await` ループを書くだけで、Go サーバーからのリアルタイム進捗を受信できます。
+
+```typescript
+// 🚀 WebSocket 不要！標準のループ処理だけでリアルタイム受信
+const stream = streamingClient.streamProgress({
+  taskName: "一括データ処理",
+  totalSteps: 5,
 });
 
-console.log(res.receiptId);  // IDEの補完が効く
-console.log(res.totalPrice);
+for await (const chunk of stream) {
+  console.log(`進捗率: ${chunk.percentage}% - ${chunk.message}`);
+  setProgress(chunk.percentage); // React の useState をそのまま更新！
+}
 ```
 
-## 開発の進め方
-新しい機能（エンドポイント）を追加したい場合は、常に以下の 4 ステップで行います。
+---
 
-1. Schema: proto/**/*.proto にリクエストとレスポンスのメッセージ、および Service を定義する。
+## 💻 デモアプリを触ってみる
 
-2. Generate: プロジェクトルートで buf generate コマンドを実行し、Go/TS のコードを自動生成・同期する。
+現在ローカルでサーバーが起動しています。ブラウザで画面を開いて体験してみてください！
 
-3. Backend: main.go などのバックエンド側で、自動生成されたインターフェースに従ってロジックを追加する。
+* **React / Next.js デモ画面:** 👉 [http://localhost:5173](http://localhost:5173)
+* **バックエンド (Go):** `http://localhost:8080`
 
-4. Frontend: React 側で client.新しい関数名(params) を呼び出し、UIを構築する。
+1. **Unary Call (Greet)**: 名前を入力して送信（空文字で送ると型付きエラーの検知を体験）
+2. **State & Purchase**: 商品を選択して購入（在庫がリアルタイムに連動）
+3. **Live Streaming**: ボタン1つで WebSocket なしのリアルタイム進捗を受信

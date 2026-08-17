@@ -24,25 +24,74 @@ service GreetService {
 }
 
 // ==========================================
-// 2. Purchase Feature
+// 2. Store / Purchase Feature (CRUD & Business Logic)
 // ==========================================
+
+message ProductItem {
+  string id = 1;
+  string name = 2;
+  int32 price = 3;
+  int32 stock = 4;
+}
+
+message ListProductsRequest {}
+
+message ListProductsResponse {
+  repeated ProductItem products = 1;
+}
 
 // The Input (What React sends to Go)
 message PurchaseRequest {
-  string product = 1;
+  string product_id = 1;
   int32 quantity = 2;
-  int32 price = 3;
 }
 
 // The Output (What Go sends back to React)
 message PurchaseResponse {
   string receipt_id = 1;
-  string product = 2;
+  string product_name = 2;
   int32 quantity = 3;
-  int32 total_price = 4;
+  int32 unit_price = 4;
+  int32 total_price = 5;
+  string created_at = 6;
+}
+
+message GetOrderStatusRequest {
+  string receipt_id = 1;
+}
+
+message GetOrderStatusResponse {
+  string receipt_id = 1;
+  string status = 2; // "PROCESSING", "SHIPPED", "DELIVERED"
+  string tracking_number = 3;
+  string estimated_delivery = 4;
 }
 
 // Service dedicated to store transactions
 service PurchaseService {
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse);
   rpc Purchase(PurchaseRequest) returns (PurchaseResponse);
+  rpc GetOrderStatus(GetOrderStatusRequest) returns (GetOrderStatusResponse);
+}
+
+// ==========================================
+// 3. Streaming Feature (Real-time Server Streaming)
+// ==========================================
+
+message StreamProgressRequest {
+  string task_name = 1;
+  int32 total_steps = 2;
+}
+
+message StreamProgressResponse {
+  int32 current_step = 1;
+  int32 total_steps = 2;
+  int32 percentage = 3;
+  string message = 4;
+  string timestamp = 5;
+}
+
+// Service dedicated to real-time streaming without WebSockets
+service StreamingService {
+  rpc StreamProgress(StreamProgressRequest) returns (stream StreamProgressResponse);
 }
