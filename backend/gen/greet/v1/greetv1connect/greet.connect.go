@@ -26,6 +26,8 @@ const (
 	GreetServiceName = "greet.v1.GreetService"
 	// PurchaseServiceName is the fully-qualified name of the PurchaseService service.
 	PurchaseServiceName = "greet.v1.PurchaseService"
+	// OrderEstimateServiceName is the fully-qualified name of the OrderEstimateService service.
+	OrderEstimateServiceName = "greet.v1.OrderEstimateService"
 )
 
 // These constants are the fully-qualified names of the RPCs defined in this package. They're
@@ -41,6 +43,9 @@ const (
 	// PurchaseServicePurchaseProcedure is the fully-qualified name of the PurchaseService's Purchase
 	// RPC.
 	PurchaseServicePurchaseProcedure = "/greet.v1.PurchaseService/Purchase"
+	// OrderEstimateServiceEstimateProcedure is the fully-qualified name of the OrderEstimateService's
+	// Estimate RPC.
+	OrderEstimateServiceEstimateProcedure = "/greet.v1.OrderEstimateService/Estimate"
 )
 
 // GreetServiceClient is a client for the greet.v1.GreetService service.
@@ -181,4 +186,74 @@ type UnimplementedPurchaseServiceHandler struct{}
 
 func (UnimplementedPurchaseServiceHandler) Purchase(context.Context, *connect.Request[v1.PurchaseRequest]) (*connect.Response[v1.PurchaseResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("greet.v1.PurchaseService.Purchase is not implemented"))
+}
+
+// OrderEstimateServiceClient is a client for the greet.v1.OrderEstimateService service.
+type OrderEstimateServiceClient interface {
+	Estimate(context.Context, *connect.Request[v1.OrderEstimateRequest]) (*connect.Response[v1.OrderEstimateResponse], error)
+}
+
+// NewOrderEstimateServiceClient constructs a client for the greet.v1.OrderEstimateService service.
+// By default, it uses the Connect protocol with the binary Protobuf Codec, asks for gzipped
+// responses, and sends uncompressed requests. To use the gRPC or gRPC-Web protocols, supply the
+// connect.WithGRPC() or connect.WithGRPCWeb() options.
+//
+// The URL supplied here should be the base URL for the Connect or gRPC server (for example,
+// http://api.acme.com or https://acme.com/grpc).
+func NewOrderEstimateServiceClient(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) OrderEstimateServiceClient {
+	baseURL = strings.TrimRight(baseURL, "/")
+	orderEstimateServiceMethods := v1.File_greet_v1_greet_proto.Services().ByName("OrderEstimateService").Methods()
+	return &orderEstimateServiceClient{
+		estimate: connect.NewClient[v1.OrderEstimateRequest, v1.OrderEstimateResponse](
+			httpClient,
+			baseURL+OrderEstimateServiceEstimateProcedure,
+			connect.WithSchema(orderEstimateServiceMethods.ByName("Estimate")),
+			connect.WithClientOptions(opts...),
+		),
+	}
+}
+
+// orderEstimateServiceClient implements OrderEstimateServiceClient.
+type orderEstimateServiceClient struct {
+	estimate *connect.Client[v1.OrderEstimateRequest, v1.OrderEstimateResponse]
+}
+
+// Estimate calls greet.v1.OrderEstimateService.Estimate.
+func (c *orderEstimateServiceClient) Estimate(ctx context.Context, req *connect.Request[v1.OrderEstimateRequest]) (*connect.Response[v1.OrderEstimateResponse], error) {
+	return c.estimate.CallUnary(ctx, req)
+}
+
+// OrderEstimateServiceHandler is an implementation of the greet.v1.OrderEstimateService service.
+type OrderEstimateServiceHandler interface {
+	Estimate(context.Context, *connect.Request[v1.OrderEstimateRequest]) (*connect.Response[v1.OrderEstimateResponse], error)
+}
+
+// NewOrderEstimateServiceHandler builds an HTTP handler from the service implementation. It returns
+// the path on which to mount the handler and the handler itself.
+//
+// By default, handlers support the Connect, gRPC, and gRPC-Web protocols with the binary Protobuf
+// and JSON codecs. They also support gzip compression.
+func NewOrderEstimateServiceHandler(svc OrderEstimateServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
+	orderEstimateServiceMethods := v1.File_greet_v1_greet_proto.Services().ByName("OrderEstimateService").Methods()
+	orderEstimateServiceEstimateHandler := connect.NewUnaryHandler(
+		OrderEstimateServiceEstimateProcedure,
+		svc.Estimate,
+		connect.WithSchema(orderEstimateServiceMethods.ByName("Estimate")),
+		connect.WithHandlerOptions(opts...),
+	)
+	return "/greet.v1.OrderEstimateService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case OrderEstimateServiceEstimateProcedure:
+			orderEstimateServiceEstimateHandler.ServeHTTP(w, r)
+		default:
+			http.NotFound(w, r)
+		}
+	})
+}
+
+// UnimplementedOrderEstimateServiceHandler returns CodeUnimplemented from all methods.
+type UnimplementedOrderEstimateServiceHandler struct{}
+
+func (UnimplementedOrderEstimateServiceHandler) Estimate(context.Context, *connect.Request[v1.OrderEstimateRequest]) (*connect.Response[v1.OrderEstimateResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("greet.v1.OrderEstimateService.Estimate is not implemented"))
 }

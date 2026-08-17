@@ -5,7 +5,7 @@
 
 // buf:lint:ignore PACKAGE_DIRECTORY_MATCH
 
-import { GreetRequest, GreetResponse, PurchaseRequest, PurchaseResponse } from "./greet_pb.js";
+import { GreetRequest, GreetResponse, OrderEstimateRequest, OrderEstimateResponse, PurchaseRequest, PurchaseResponse } from "./greet_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -43,6 +43,24 @@ export const PurchaseService = {
       name: "Purchase",
       I: PurchaseRequest,
       O: PurchaseResponse,
+      kind: MethodKind.Unary,
+    },
+  }
+} as const;
+
+/**
+ * @generated from service greet.v1.OrderEstimateService
+ */
+export const OrderEstimateService = {
+  typeName: "greet.v1.OrderEstimateService",
+  methods: {
+    /**
+     * @generated from rpc greet.v1.OrderEstimateService.Estimate
+     */
+    estimate: {
+      name: "Estimate",
+      I: OrderEstimateRequest,
+      O: OrderEstimateResponse,
       kind: MethodKind.Unary,
     },
   }
