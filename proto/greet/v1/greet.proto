@@ -76,5 +76,7 @@ message OrderEstimateResponse {
 }
 
 service OrderEstimateService {
+  // buf:lint:ignore RPC_REQUEST_STANDARD_NAME
+  // buf:lint:ignore RPC_RESPONSE_STANDARD_NAME
   rpc Estimate(OrderEstimateRequest) returns (OrderEstimateResponse);
 }
